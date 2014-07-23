@@ -31,14 +31,25 @@ module SikuliServer
       require "fileutils"
       require "childprocess"
 
-      server_path = File.expand_path(File.join(File.dirname(__FILE__), "../../SikuliServer"))
-      FileUtils.mkdir_p File.join(server_path, "bin")
+      server_path = File.expand_path(
+		  File.join(File.dirname(__FILE__), '..', '..', 'SikuliServer'))
+      FileUtils.mkdir_p File.join(server_path, 'bin')
+	  sikuli_script_jar = ENV['SIKULI_SCRIPT_JAR']
+	  raise RuntimeError,
+		  'Set env var SIKULI_SCRIPT_JAR' unless sikuli_script_jar
+	  java_home = ENV['JAVA_HOME']
+	  raise RuntimeError, 'Set env var JAVA_HOME' unless java_home
+
       Dir.chdir server_path do
         sikuli_script_jar = [
-          "/Applications/Sikuli-IDE.app/Contents/Resources/Java/sikuli-script.jar"
+          #"/Applications/Sikuli-IDE.app/Contents/Resources/Java/sikuli-script.jar"
+		  sikuli_script_jar
         ].find {|f| File.exist?(f)}
 
-        compile_output = `javac -d bin -classpath lib/gson-2.2.2.jar:#{sikuli_script_jar} src/*.java`
+		javac     = File.join(java_home, 'bin', 'javac')
+		gson_jar  = File.join('lib', 'gson-2.2.2.jar')
+		misc_java = File.join('src', '*.java')
+        compile_output = `#{javac} -d bin -classpath #{gson_jar}:#{sikuli_script_jar} #{misc_java}`
         if $?.exitstatus != 0
           raise compile_output
         end
@@ -58,6 +69,7 @@ module SikuliServer
 
     def download_jars
       gson_path = File.expand_path(File.join(File.dirname(__FILE__), "../../SikuliServer/lib/gson-2.2.2.jar"))
+      gson_dir  = File.dirname(gson_path)
 
       require "httparty"
       require "tempfile"
@@ -66,7 +78,9 @@ module SikuliServer
       temp_file << gson_response.body
 
       require "zip/zip"
+      path = temp_file.path
       zip = Zip::ZipFile.open(temp_file.path)
+      Dir.mkdir(gson_dir) unless Dir.exist?(gson_dir)
       File.open(gson_path, "w") do |gson_file|
         gson_file.write(zip.read("google-gson-2.2.2/gson-2.2.2.jar"))
       end
